@@ -1,0 +1,75 @@
+services:
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: nestjs-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: nestjs_app
+      MYSQL_USER: nestjs
+      MYSQL_PASSWORD: nestjspassword
+    ports:
+      - '3307:3306'
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - nestjs-network
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']
+      timeout: 20s
+      retries: 10
+
+  # phpMyAdmin - MySQL UI
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: nestjs-phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_ARBITRARY: 1
+    ports:
+      - '8080:80'
+    depends_on:
+      - mysql
+    networks:
+      - nestjs-network
+
+  # NestJS Application
+  nestjs-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nestjs-app
+    restart: unless-stopped
+    environment:
+      DATABASE_TYPE: mysql
+      DATABASE_HOST: mysql
+      DATABASE_PORT: 3306
+      DATABASE_USERNAME: nestjs
+      DATABASE_PASSWORD: nestjspassword
+      DATABASE_NAME: nestjs_app
+      JWT_SECRET: your-super-secret-jwt-key-here
+      JWT_EXPIRES_IN: 7d
+      PORT: 3000
+      NODE_ENV: production
+      API_PREFIX: api
+      API_VERSION: v1
+    ports:
+      - '3000:3000'
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - nestjs-network
+    volumes:
+      - ./src:/app/src
+      - ./package.json:/app/package.json
+
+volumes:
+  mysql_data:
+
+networks:
+  nestjs-network:
+    driver: bridge
